@@ -6,6 +6,11 @@ from src.services.calculations import CalculationService
 from datetime import datetime
 import html
 
+def format_progress_color(progress):
+    if progress < 1.0: return f":red[**{progress:.1f}%**]"
+    elif progress < 99.9: return f":orange[**{progress:.1f}%**]"
+    else: return f":green[**{progress:.1f}%**]"
+
 def show_supervisor_view():
     """
     Operational management view for Supervisors.
@@ -45,7 +50,7 @@ def show_supervisor_view():
         for i, act in enumerate(activities, 1):
             # Usamos una versión en el key para forzar el cierre al actualizar
             act_ver = st.session_state.get(f"v_act_{act.id}", 0)
-            with st.expander(f"🎯 {i}. Actividad: {act.name} ({act.progress:.1f}%)", expanded=False, key=f"exp_act_{act.id}_{act_ver}"):
+            with st.expander(f"🎯 {i}. Actividad: {act.name} (Peso: {act.weight:.1f}% | Avance: {format_progress_color(act.progress)})", expanded=False, key=f"exp_act_{act.id}_{act_ver}"):
                 
                 tasks = sorted(act.tasks, key=lambda x: x.id)
                 if not tasks:
@@ -54,7 +59,7 @@ def show_supervisor_view():
 
                 for j, t in enumerate(tasks, 1):
                     task_ver = st.session_state.get(f"v_task_{t.id}", 0)
-                    with st.expander(f"{i}.{j} {t.name}", key=f"exp_t_{t.id}_{task_ver}"):
+                    with st.expander(f"{i}.{j} {t.name} (Peso: {t.weight:.1f}% | Avance: {format_progress_color(t.progress)})", key=f"exp_t_{t.id}_{task_ver}"):
                         ev_list = db.query(Evidence).filter(Evidence.task_id == t.id).all()
                         has_evidence = len(ev_list) > 0
                         

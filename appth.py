@@ -8,6 +8,8 @@ from src.ui.views.supervisor import show_supervisor_view
 from src.ui.views.alerts import show_alerts_view
 from src.ui.views.reports import show_reports_view
 from src.ui.views.mosaico import show_mosaico_view
+from src.ui.views.export_reports import show_export_reports_view
+from src.ui.views.public_landing import show_public_landing
 import os
 from PIL import Image
 
@@ -62,38 +64,36 @@ def main():
     Orchestrates authentication flow and high-level view routing.
     """
     if not AuthService.is_authenticated():
-        show_login()
+        render_sidebar_login()
+        show_public_landing()
     else:
         show_app()
 
-def show_login():
+def render_sidebar_login():
     """
-    Renders the secure login portal.
+    Renders the secure login portal in the sidebar.
     """
-    st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
-    col_l1, col_l2, col_l3 = st.columns([1, 1, 1])
-    with col_l2:
+    with st.sidebar:
         logo_path = "assets/images/logo.png"
         if os.path.exists(logo_path):
             st.image(logo_path, use_container_width=True)
-    
-    st.markdown("<p style='text-align: center; color: #64748b; font-weight: 500;'>Sistema de Gestión Estratégica de Talento Humano</p>", unsafe_allow_html=True)
-    
-    c1, c2, c3 = st.columns([1, 1.2, 1])
-    with c2:
-        with st.container(border=True):
-            st.markdown("<h3 style='color: #00594e;'>🔐 Acceso Seguro</h3>", unsafe_allow_html=True)
-            username = st.text_input("Usuario")
-            password = st.text_input("Contraseña", type="password")
             
-            if st.button("Ingresar al Portal", use_container_width=True):
-                db = SessionLocal()
-                if AuthService.login(db, username, password):
-                    st.toast("✅ Bienvenido")
-                    st.rerun()
-                else:
-                    st.error("Credenciales inválidas")
-                db.close()
+        st.markdown("<div class='auth-sidebar'>", unsafe_allow_html=True)
+        st.markdown("<h3 class='auth-sidebar-title'>🔐 Acceso Seguro</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 0.85rem; color: #64748b;'>Portal exclusivo para personal operativo.</p>", unsafe_allow_html=True)
+        
+        username = st.text_input("Usuario")
+        password = st.text_input("Contraseña", type="password")
+        
+        if st.button("Ingresar al Portal", use_container_width=True):
+            db = SessionLocal()
+            if AuthService.login(db, username, password):
+                st.toast("✅ Bienvenido")
+                st.rerun()
+            else:
+                st.error("Credenciales inválidas")
+            db.close()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def show_app():
     """
@@ -123,6 +123,8 @@ def show_app():
             st.session_state.choice = "📈 Dashboard Personal"
         if st.button("🧩 Mosaico TH", use_container_width=True):
             st.session_state.choice = "🧩 Mosaico TH"
+        if st.button("📄 Reportes TH (Exportar)", use_container_width=True):
+            st.session_state.choice = "📄 Reportes TH"
         
         st.divider()
         
@@ -169,8 +171,9 @@ def show_app():
         show_reports_view()
     elif choice == "🧩 Mosaico TH":
         show_mosaico_view()
-    elif choice == "⚙️ Configuración Admin":
-        if user_role == "Admin": show_admin_view()
+    elif choice == "📄 Reportes TH":
+        show_export_reports_view()
+    elif choice == "⚙️ Configuración Admin" and user_role == "Admin": show_admin_view()
     elif choice == "🧐 Gestión de tareas":
         show_supervisor_view()
     elif choice == "🚨 Tareas Críticas":

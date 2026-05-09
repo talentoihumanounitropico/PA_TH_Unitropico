@@ -35,6 +35,30 @@ class CalculationService:
         db.refresh(macro)
 
     @staticmethod
+    def recalculate_all(db: Session):
+        """
+        Recalculates progress for all hierarchical levels.
+        Useful when weights change at higher levels (e.g. Policies or Programs).
+        """
+        activities = db.query(Activity).all()
+        for act in activities:
+            CalculationService._update_node(db, act, act.tasks)
+            
+        items = db.query(StrategicItem).all()
+        for si in items:
+            CalculationService._update_node(db, si, si.activities)
+            
+        policies = db.query(Policy).all()
+        for pol in policies:
+            CalculationService._update_node(db, pol, pol.strategic_items)
+            
+        macros = db.query(PlanMacro).all()
+        for macro in macros:
+            CalculationService._update_node(db, macro, macro.policies)
+            
+        db.commit()
+
+    @staticmethod
     def _update_node(db: Session, node, children):
         if not children:
             node.progress = 0.0

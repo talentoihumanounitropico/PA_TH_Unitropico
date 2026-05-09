@@ -91,6 +91,7 @@ def show_executive_dashboard():
             _, color = CalculationService.get_semaforo(macro.progress)
             fig_macro = go.Figure(go.Indicator(
                 mode = "gauge+number", value = macro.progress,
+                number={'suffix': "%", 'valueformat': ".1f"},
                 title = {'text': "Avance Consolidado TH", 'font': {'size': 18, 'color': COLORS["primary"]}},
                 gauge = {
                     'axis': {'range': [None, 100]},
@@ -113,12 +114,12 @@ def show_executive_dashboard():
             fig_pol = px.bar(
                 df_pol, x='Avance', y='Nombre', orientation='h',
                 title="Cumplimiento por Política Institucional",
-                text_auto='.1f',
                 color='Avance',
                 color_continuous_scale=[[0, '#ef4444'], [0.5, '#f59e0b'], [1, '#10b981']],
                 template="plotly_white"
             )
-            fig_pol.update_layout(showlegend=False, xaxis=dict(range=[0, 100]), yaxis=dict(title=""))
+            fig_pol.update_traces(texttemplate='%{x:.1f}%', textposition='outside')
+            fig_pol.update_layout(showlegend=False, xaxis=dict(range=[0, 110]), yaxis=dict(title=""))
             st.plotly_chart(fig_pol, use_container_width=True)
 
         st.divider()
@@ -133,7 +134,12 @@ def show_executive_dashboard():
                 title="Mapa de Programas y Planes por Política",
                 color='Avance',
                 color_continuous_scale='RdYlGn',
-                template="plotly_white"
+                template="plotly_white",
+                hover_data={'Avance': ':.1f'}
+            )
+            fig_sun.update_traces(
+                texttemplate="<b>%{label}</b>",
+                hovertemplate="<b>%{label}</b><br>Avance: %{color:.1f}%<extra></extra>"
             )
             fig_sun.update_layout(margin=dict(t=40, l=0, r=0, b=0), height=500)
             st.plotly_chart(fig_sun, use_container_width=True)
@@ -147,11 +153,12 @@ def show_executive_dashboard():
             df_trend = df_f.groupby('Mes')['Avance'].mean().reset_index()
             
             fig_trend = px.line(
-                df_trend, x='Mes', y='Avance', markers=True,
+                df_trend, x='Mes', y='Avance', markers=True, text='Avance',
                 title="Tendencia de Avance del Periodo",
                 template="plotly_white"
             )
-            fig_trend.update_traces(line_color=COLORS["primary"], line_width=4)
+            fig_trend.update_traces(line_color=COLORS["primary"], line_width=4, texttemplate='%{y:.1f}%', textposition='top center')
+            fig_trend.update_layout(yaxis=dict(range=[0, 115]))
             st.plotly_chart(fig_trend, use_container_width=True)
 
     finally:

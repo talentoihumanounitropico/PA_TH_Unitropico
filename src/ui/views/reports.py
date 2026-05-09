@@ -105,11 +105,12 @@ def show_reports_view():
             fig_rank = px.bar(
                 df_res_sorted, x="Eficiencia", y="Nombre",
                 orientation='h', title="🏆 Ranking de Cumplimiento Institucional",
-                text_auto='.1f', color="Eficiencia",
+                color="Eficiencia",
                 color_continuous_scale=[[0, '#f1f5f9'], [0.5, '#b5a160'], [1, '#00594e']],
                 template="plotly_white"
             )
-            fig_rank.update_layout(showlegend=False, height=400)
+            fig_rank.update_traces(texttemplate='%{x:.1f}%', textposition='outside')
+            fig_rank.update_layout(showlegend=False, xaxis=dict(range=[0, 110]), height=400)
             st.plotly_chart(fig_rank, use_container_width=True)
 
         with col_viz_2:
@@ -119,6 +120,10 @@ def show_reports_view():
                 color='Estado',
                 color_discrete_map={"Cumplida": COLORS["primary"], "En Proceso": COLORS["secondary"], "Pendiente": COLORS["pending"]},
                 template="plotly_white"
+            )
+            fig_sun.update_traces(
+                texttemplate="<b>%{label}</b>",
+                hovertemplate="<b>%{label}</b><br>Suma de Avances: %{value:.1f}%<extra></extra>"
             )
             fig_sun.update_layout(height=400)
             st.plotly_chart(fig_sun, use_container_width=True)
