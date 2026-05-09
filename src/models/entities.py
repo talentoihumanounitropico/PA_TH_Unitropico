@@ -10,6 +10,7 @@ task_tags = Table(
     Base.metadata,
     Column("task_id", ForeignKey("tasks.id"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+    extend_existing=True
 )
 
 # Junction for Responsibles
@@ -18,10 +19,44 @@ task_responsibles = Table(
     Base.metadata,
     Column("task_id", ForeignKey("tasks.id"), primary_key=True),
     Column("responsible_id", ForeignKey("responsibles.id"), primary_key=True),
+    extend_existing=True
 )
+
+# Junction for Activity Supervisors
+activity_supervisors = Table(
+    "activity_supervisors",
+    Base.metadata,
+    Column("activity_id", ForeignKey("activities.id"), primary_key=True),
+    Column("responsible_id", ForeignKey("responsibles.id"), primary_key=True),
+    extend_existing=True
+)
+
+class Tag(Base):
+    __tablename__ = "tags"
+    __table_args__ = {'extend_existing': True}
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    color: Mapped[str] = mapped_column(String(20), default="#3b82f6")
+
+class Responsible(Base):
+    __tablename__ = "responsibles"
+    __table_args__ = {'extend_existing': True}
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    role: Mapped[str] = mapped_column(String(100))
+    department: Mapped[str] = mapped_column(String(100))
+    
+    
+    tasks: Mapped[List["Task"]] = relationship(
+        secondary=task_responsibles, back_populates="responsibles"
+    )
+    supervised_activities: Mapped[List["Activity"]] = relationship(
+        secondary=activity_supervisors, back_populates="supervisors"
+    )
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
@@ -34,29 +69,13 @@ class User(Base):
     responsible_id: Mapped[Optional[int]] = mapped_column(ForeignKey("responsibles.id"))
     responsible: Mapped[Optional["Responsible"]] = relationship()
 
-class Tag(Base):
-    __tablename__ = "tags"
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(50), unique=True)
-    color: Mapped[str] = mapped_column(String(20), default="#3b82f6")
-
-class Responsible(Base):
-    __tablename__ = "responsibles"
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(100))
-    role: Mapped[str] = mapped_column(String(100))
-    department: Mapped[str] = mapped_column(String(100))
-    
-    tasks: Mapped[List["Task"]] = relationship(
-        secondary=task_responsibles, back_populates="responsibles"
-    )
-
 class PlanMacro(Base):
     """
     PlanMacro represents the highest level in the strategic hierarchy (Level 5).
     It usually corresponds to a full fiscal year of Human Resources management.
     """
     __tablename__ = "plan_macros"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200))
     year: Mapped[int] = mapped_column(Integer)
@@ -68,6 +87,7 @@ class PlanMacro(Base):
 
 class Policy(Base):
     __tablename__ = "policies"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     plan_macro_id: Mapped[int] = mapped_column(ForeignKey("plan_macros.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -79,6 +99,7 @@ class Policy(Base):
 
 class StrategicItem(Base):
     __tablename__ = "strategic_items"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     policy_id: Mapped[int] = mapped_column(ForeignKey("policies.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -91,6 +112,7 @@ class StrategicItem(Base):
 
 class Activity(Base):
     __tablename__ = "activities"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     strategic_item_id: Mapped[int] = mapped_column(ForeignKey("strategic_items.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -100,9 +122,14 @@ class Activity(Base):
     
     strategic_item: Mapped["StrategicItem"] = relationship(back_populates="activities")
     tasks: Mapped[List["Task"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
+    evidences: Mapped[List["Evidence"]] = relationship(back_populates="activity", cascade="all, delete-orphan")
+    supervisors: Mapped[List["Responsible"]] = relationship(
+        secondary=activity_supervisors, back_populates="supervised_activities"
+    )
 
 class Task(Base):
     __tablename__ = "tasks"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     activity_id: Mapped[int] = mapped_column(ForeignKey("activities.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -124,10 +151,13 @@ class Task(Base):
 
 class Evidence(Base):
     __tablename__ = "evidences"
+    __table_args__ = {'extend_existing': True}
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"))
+    task_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id"))
+    activity_id: Mapped[Optional[int]] = mapped_column(ForeignKey("activities.id"))
     url: Mapped[str] = mapped_column(String(500))
     description: Mapped[Optional[str]] = mapped_column(String(200))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
-    task: Mapped["Task"] = relationship(back_populates="evidences")
+    task: Mapped[Optional["Task"]] = relationship(back_populates="evidences")
+    activity: Mapped[Optional["Activity"]] = relationship(back_populates="evidences")

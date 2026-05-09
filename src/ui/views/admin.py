@@ -130,12 +130,25 @@ def edit_dialog(db, obj, label):
         res_map = {r.id: r for r in all_res}
         current_ids = [r.id for r in obj.responsibles]
         selected_ids = st.multiselect(
-            "Responsables Asignados", 
+            "Responsables (Workers) Asignados", 
             options=list(res_map.keys()), 
             default=current_ids,
             format_func=lambda x: f"{res_map[x].name} ({res_map[x].role})"
         )
         selected_res = [res_map[rid] for rid in selected_ids]
+        
+    elif isinstance(obj, Activity):
+        all_res = db.query(Responsible).all()
+        res_map = {r.id: r for r in all_res}
+        current_ids = [r.id for r in getattr(obj, 'supervisors', [])]
+        selected_ids = st.multiselect(
+            "Supervisores Asignados a la Actividad", 
+            options=list(res_map.keys()), 
+            default=current_ids,
+            format_func=lambda x: f"{res_map[x].name} ({res_map[x].role})"
+        )
+        selected_res = [res_map[rid] for rid in selected_ids]
+
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Guardar", disabled=not is_valid, use_container_width=True, type="primary"):
@@ -151,8 +164,11 @@ def edit_dialog(db, obj, label):
                 obj.target_date = new_end
                 obj.responsibles = selected_res
                 obj.responsible_name = ", ".join([r.name for r in selected_res])
+            elif isinstance(obj, Activity):
+                obj.supervisors = selected_res
                 
             db.add(obj) 
+
             db.commit()
             
             from src.services.calculations import CalculationService
@@ -339,8 +355,18 @@ def manage_operational_level(db):
         s_weights = [a.weight for a in item.activities]
         mode, weight, is_valid = weight_manager_ui(s_weights, "Actividad", f"wm_act_{item.id}")
         
+        all_res = db.query(Responsible).all()
+        res_map = {r.id: r for r in all_res}
+        selected_res_ids = st.multiselect(
+            "Seleccionar Supervisores", 
+            options=list(res_map.keys()),
+            format_func=lambda x: f"{res_map[x].name} ({res_map[x].role})",
+            key=f"res_act_{item.id}"
+        )
+        
         if st.button("Crear", disabled=not is_valid, key=f"btn_act_{item.id}"):
             new_act = Activity(name=name, weight=weight, strategic_item_id=item.id)
+            new_act.supervisors = [res_map[rid] for rid in selected_res_ids]
             db.add(new_act)
             if mode == "Automática": auto_distribute_weights(db, list(item.activities), new_act)
             db.commit()

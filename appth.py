@@ -114,20 +114,22 @@ def show_app():
         
     # --- Structured Navigation ---
     if 'choice' not in st.session_state:
-        st.session_state.choice = "🏠 Dashboard"
+        st.session_state.choice = "🏠 Dashboard" if user_role != "Worker" else "👷 Mis Tareas"
 
     with st.sidebar:
-        st.markdown("### 📊 INTELIGENCIA")
-        if st.button("🏠 Dashboard Institucional", use_container_width=True):
-            st.session_state.choice = "🏠 Dashboard"
-        if st.button("📈 Dashboard Personal", use_container_width=True):
-            st.session_state.choice = "📈 Dashboard Personal"
-        if st.button("🧩 Mosaico TH", use_container_width=True):
-            st.session_state.choice = "🧩 Mosaico TH"
-        if st.button("📄 Reportes TH (Exportar)", use_container_width=True):
-            st.session_state.choice = "📄 Reportes TH"
+        if user_role != "Worker":
+            st.markdown("### 📊 INTELIGENCIA")
+            if st.button("🏠 Dashboard Institucional", use_container_width=True):
+                st.session_state.choice = "🏠 Dashboard"
+            if st.button("🧩 Mosaico TH", use_container_width=True):
+                st.session_state.choice = "🧩 Mosaico TH"
+            if st.button("📄 Reportes TH (Exportar)", use_container_width=True):
+                st.session_state.choice = "📄 Reportes TH"
+            st.divider()
         
-        st.divider()
+        st.markdown("### 📈 MI ESPACIO")
+        if st.button("📈 Reporte de Mis Tareas", use_container_width=True):
+            st.session_state.choice = "📈 Dashboard Personal"
         
         if user_role == "Admin":
             st.markdown("### ⚙️ ADMINISTRACIÓN")
@@ -146,21 +148,63 @@ def show_app():
             if st.button("👷 Mis Tareas Asignadas", use_container_width=True):
                 st.session_state.choice = "👷 Mis Tareas"
 
-        # --- Sidebar Progress Indicator ---
+        # --- Sidebar Progress Indicator (Context-Aware Innovation) ---
         st.divider()
-        st.markdown("### 🏛️ Avance de Gestión TH")
         db = SessionLocal()
         try:
-            from src.models.entities import PlanMacro, Policy
-            from sqlalchemy.orm import joinedload
-            macro = db.query(PlanMacro).options(joinedload(PlanMacro.policies)).first()
-            if macro:
-                st.metric("Consolidado Total", f"{macro.progress:.1f}%")
-                for pol in macro.policies:
-                    st.caption(f"{pol.name}")
-                    st.progress(pol.progress / 100)
+            if user_role == "Worker":
+                st.markdown("### 🎯 Mi Rendimiento")
+                from src.models.entities import Task, Responsible, Activity
+                from datetime import datetime, timedelta
+                
+                # Get tasks for this specific worker
+                res_id = st.session_state.get("responsible_id")
+                worker_tasks = db.query(Task).join(Task.responsibles).filter(Responsible.id == res_id).all()
+                
+                if worker_tasks:
+                    now = datetime.now()
+                    vencidas = len([t for t in worker_tasks if t.status != "Cumplida" and t.end_date and t.end_date < now])
+                    proximas = len([t for t in worker_tasks if t.status != "Cumplida" and t.end_date and now <= t.end_date <= (now + timedelta(days=3))])
+                    cumplidas = len([t for t in worker_tasks if t.status == "Cumplida"])
+                    
+                    # Overall personal progress
+                    avg_progress = sum(t.progress for t in worker_tasks) / len(worker_tasks)
+                    st.metric("Cumplimiento Personal", f"{avg_progress:.1f}%")
+                    st.progress(avg_progress / 100)
+                    
+                    # Status Pills
+                    st.markdown(f"""
+                    <div style='display: flex; gap: 5px; margin-top: 10px; margin-bottom: 15px;'>
+                        <span style='background: #fee2e2; color: #ef4444; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #fecaca;'>🔴 {vencidas}</span>
+                        <span style='background: #fef3c7; color: #f59e0b; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #fde68a;'>🟡 {proximas}</span>
+                        <span style='background: #dcfce7; color: #10b981; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #bbf7d0;'>🟢 {cumplidas}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("##### 🏁 Mis Frentes de Trabajo")
+                    # Show progress of activities where the worker has tasks
+                    act_ids = list(set([t.activity_id for t in worker_tasks]))
+                    for aid in act_ids[:3]: # Show top 3 to keep sidebar clean
+                        act = db.query(Activity).get(aid)
+                        if act:
+                            st.caption(f"📍 {act.name}")
+                            st.progress(act.progress / 100)
+                else:
+                    st.info("Sin tareas asignadas.")
+            
             else:
-                st.info("Sin plan configurado.")
+                # Macro View for Admin/Supervisor
+                st.markdown("### 🏛️ Avance de Gestión TH")
+                from src.models.entities import PlanMacro, Policy
+                from sqlalchemy.orm import joinedload
+                macro = db.query(PlanMacro).options(joinedload(PlanMacro.policies)).first()
+                if macro:
+                    st.metric("Consolidado Total", f"{macro.progress:.1f}%")
+                    for pol in macro.policies:
+                        st.caption(f"{pol.name}")
+                        st.progress(pol.progress / 100)
+                else:
+                    st.info("Sin plan configurado.")
         finally:
             db.close()
 
